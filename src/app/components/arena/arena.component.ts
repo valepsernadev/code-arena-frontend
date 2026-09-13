@@ -10,6 +10,7 @@ import { SocketService } from '../../services/socket.service';
 import { Jugador, Sala } from '../../services/salas.service';
 import { Pregunta, PreguntaModalComponent } from '../pregunta-modal/pregunta-modal.component';
 import { HudComponent } from '../hud/hud.component';
+import { GanadorComponent } from '../ganador/ganador.component';
 
 const MIN_X = -49;
 const MAX_X = 49;
@@ -27,11 +28,15 @@ const COLOR_DRONE_MUERTO = 0x888888;
 @Component({
   selector: 'app-arena',
   standalone: true,
-  imports: [HudComponent, PreguntaModalComponent],
+  imports: [HudComponent, PreguntaModalComponent, GanadorComponent],
   template: `
     <div #arenaContainer></div>
 
-    <app-hud [jugadores]="jugadores" [jugadorId]="jugadorId"></app-hud>
+    <app-hud
+      [jugadores]="jugadores"
+      [jugadorId]="jugadorId"
+      [nickname]="nickname"
+    ></app-hud>
 
     <app-pregunta-modal
       [pregunta]="pregunta"
@@ -44,6 +49,14 @@ const COLOR_DRONE_MUERTO = 0x888888;
     <button type="button" class="habilidad" (click)="usarHabilidad()">
       Habilidad
     </button>
+
+    @if (ganador) {
+      <app-ganador
+        [ganador]="ganador"
+        [razon]="razon"
+        [jugadores]="jugadores"
+      ></app-ganador>
+    }
 
     @if (mensaje) {
       <p class="mensaje">{{ mensaje }}</p>
@@ -98,6 +111,8 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
   pregunta: Pregunta | null = null;
   habilidadDesbloqueada: string | null = null;
   mensaje = '';
+  ganador: string | null = null;
+  razon = '';
 
   constructor(private readonly socketService: SocketService) {}
 
@@ -109,6 +124,7 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
     this.initScene();
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
     this.animate();
     this.conectarSocket();
   }
@@ -122,6 +138,7 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
 
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
     this.renderer.dispose();
   }
 
@@ -196,6 +213,12 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
       this.mensaje = 'Un jugador se reconecto';
     });
 
+    this.socketService.on('partidaTerminada', (payload) => {
+      this.ganador = payload.ganador;
+      this.razon = payload.razon;
+      this.pregunta = null;
+    });
+
     this.socketService.emit('unirseSala', {
       salaId: this.salaId,
       nickname: this.nickname,
@@ -233,7 +256,7 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
 
   private sincronizarDronesAjenos(): void {
     this.jugadores.forEach((jugador) => {
-      if (jugador.id === this.jugadorId) {
+      if (this.esMiJugador(jugador)) {
         return;
       }
 
@@ -256,6 +279,14 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
         Number(jugador.posicion_z),
       );
     });
+  }
+
+  private esMiJugador(jugador: Jugador): boolean {
+    if (this.jugadorId !== '' && jugador.id === this.jugadorId) {
+      return true;
+    }
+
+    return this.nickname !== '' && jugador.nickname === this.nickname;
   }
 
   private crearDroneAjeno(jugador: Jugador): THREE.Mesh {
@@ -418,6 +449,10 @@ export class ArenaComponent implements AfterViewInit, OnDestroy {
     if (event.code === 'Space') {
       event.preventDefault();
     }
+  };
+
+  private onBlur = (): void => {
+    this.pressedKeys.clear();
   };
 
   private onKeyUp = (event: KeyboardEvent): void => {

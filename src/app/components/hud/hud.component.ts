@@ -41,11 +41,20 @@ import { Jugador } from '../../services/salas.service';
 export class HudComponent {
   @Input() jugadores: Jugador[] = [];
   @Input() jugadorId = '';
+  @Input() nickname = '';
 
   timer = 300;
 
+  private esPropio(jugador: Jugador): boolean {
+    if (this.jugadorId !== '' && jugador.id === this.jugadorId) {
+      return true;
+    }
+
+    return this.nickname !== '' && jugador.nickname === this.nickname;
+  }
+
   get propio(): Jugador | undefined {
-    return this.jugadores.find((jugador) => jugador.id === this.jugadorId);
+    return this.jugadores.find((jugador) => this.esPropio(jugador));
   }
 
   get puntajePropio(): number {
@@ -57,6 +66,6 @@ export class HudComponent {
   }
 
   get otros(): Jugador[] {
-    return this.jugadores.filter((jugador) => jugador.id !== this.jugadorId);
+    return this.jugadores.filter((jugador) => !this.esPropio(jugador));
   }
 }
