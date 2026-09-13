@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { SalasService } from '../../services/salas.service';
+import { Sala, SalasService } from '../../services/salas.service';
 
 const TEMAS: string[] = [
   'Angular',
@@ -93,9 +93,19 @@ export class MenuPrincipalComponent {
 
     this.salasService.crearSala(this.tema, this.nickname).subscribe({
       next: (sala) => {
-        localStorage.setItem('salaId', sala.id);
-        localStorage.setItem('codigo', sala.codigo);
-        this.router.navigate(['/lobby']);
+        this.salasService.obtenerSala(sala.codigo).subscribe({
+          next: (detalle) => {
+            const yo = detalle.jugadores.find(
+              (jugador) => jugador.nickname === this.nickname,
+            );
+
+            this.guardarSesion(sala, yo ? yo.id : '');
+            this.router.navigate(['/lobby']);
+          },
+          error: (respuesta) => {
+            this.error = respuesta.error?.error ?? 'No se pudo cargar la sala';
+          },
+        });
       },
       error: (respuesta) => {
         this.error = respuesta.error?.error ?? 'No se pudo crear la sala';
@@ -118,13 +128,23 @@ export class MenuPrincipalComponent {
 
     this.salasService.unirseASala(this.codigo, this.nickname).subscribe({
       next: (detalle) => {
-        localStorage.setItem('salaId', detalle.sala.id);
-        localStorage.setItem('codigo', detalle.sala.codigo);
+        const yo = detalle.jugadores.find(
+          (jugador) => jugador.nickname === this.nickname,
+        );
+
+        this.guardarSesion(detalle.sala, yo ? yo.id : '');
         this.router.navigate(['/lobby']);
       },
       error: (respuesta) => {
         this.error = respuesta.error?.error ?? 'No se pudo unir a la sala';
       },
     });
+  }
+
+  private guardarSesion(sala: Sala, jugadorId: string): void {
+    localStorage.setItem('salaId', sala.id);
+    localStorage.setItem('codigo', sala.codigo);
+    localStorage.setItem('jugadorId', jugadorId);
+    localStorage.setItem('nickname', this.nickname);
   }
 }
