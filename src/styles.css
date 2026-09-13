@@ -2,3 +2,17 @@
 body {
   margin: 0;
 }
+
+:root {
+  --ca-fondo: #070b14;
+  --ca-panel: #0d1425;
+  --ca-panel-alto: #111a2e;
+  --ca-borde: #1b2a44;
+  --ca-cian: #22d3ee;
+  --ca-cian-brillo: #67e8f9;
+  --ca-morado: #a855f7;
+  --ca-morado-brillo: #c084fc;
+  --ca-texto: #dbe6f5;
+  --ca-tenue: #6f82a8;
+  --ca-mono: Consolas, 'Courier New', ui-monospace, monospace;
+}
