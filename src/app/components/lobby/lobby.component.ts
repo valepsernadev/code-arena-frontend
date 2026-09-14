@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Jugador, Sala, SalasService } from '../../services/salas.service';
+import { SocketService } from '../../services/socket.service';
 
 @Component({
   selector: 'app-lobby',
@@ -14,7 +15,12 @@ import { Jugador, Sala, SalasService } from '../../services/salas.service';
       @if (sala) {
         <section class="panel">
           <span class="etiqueta">CÓDIGO DE SALA</span>
-          <strong class="codigo">{{ sala.codigo }}</strong>
+          <div class="fila-codigo">
+            <strong class="codigo">{{ sala.codigo }}</strong>
+            <span class="estado" [class.jugando]="sala.estado === 'PLAYING'">
+              {{ sala.estado }}
+            </span>
+          </div>
         </section>
 
         <section class="panel">
@@ -99,11 +105,32 @@ import { Jugador, Sala, SalasService } from '../../services/salas.service';
         color: var(--ca-tenue);
       }
 
+      .fila-codigo {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
       .codigo {
         font-size: 30px;
         letter-spacing: 6px;
         color: var(--ca-cian-brillo);
         text-shadow: 0 0 16px rgba(34, 211, 238, 0.6);
+      }
+
+      .estado {
+        padding: 6px 12px;
+        border: 1px solid var(--ca-tenue);
+        border-radius: 3px;
+        color: var(--ca-tenue);
+        font-size: 12px;
+        letter-spacing: 3px;
+      }
+
+      .estado.jugando {
+        border-color: var(--ca-morado);
+        color: var(--ca-morado-brillo);
+        box-shadow: 0 0 14px rgba(168, 85, 247, 0.5);
       }
 
       .fila-titulo {
@@ -195,15 +222,23 @@ export class LobbyComponent implements OnInit {
   jugadores: Jugador[] = [];
   error: string | null = null;
 
+  private salaId = '';
+  private nickname = '';
+  private yaNavego = false;
+
   constructor(
     private readonly salasService: SalasService,
+    private readonly socketService: SocketService,
     private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
     const codigo = localStorage.getItem('codigo');
 
-    if (!codigo) {
+    this.salaId = localStorage.getItem('salaId') ?? '';
+    this.nickname = localStorage.getItem('nickname') ?? '';
+
+    if (!codigo || !this.salaId) {
       this.router.navigate(['/']);
       return;
     }
@@ -217,6 +252,19 @@ export class LobbyComponent implements OnInit {
         this.error = respuesta.error?.error ?? 'No se pudo cargar la sala';
       },
     });
+
+    this.socketService.on('estadoSala', (payload) => {
+      this.alEstadoSala(payload);
+    });
+
+    this.socketService.emit('unirseSala', {
+      salaId: this.salaId,
+      nickname: this.nickname,
+    });
+  }
+
+  iniciarPartida(): void {
+    this.socketService.emit('iniciarPartida', { salaId: this.salaId });
   }
 
   get slots(): (Jugador | null)[] {
@@ -230,11 +278,22 @@ export class LobbyComponent implements OnInit {
     return lista;
   }
 
-  iniciarPartida(): void {
-    this.router.navigate(['/arena']);
-  }
-
   get puedeIniciar(): boolean {
     return this.jugadores.length >= 2;
+  }
+
+  private alEstadoSala(payload: any): void {
+    if (payload.sala) {
+      this.sala = payload.sala;
+    }
+
+    if (payload.jugadores) {
+      this.jugadores = payload.jugadores;
+    }
+
+    if (this.sala && this.sala.estado === 'PLAYING' && !this.yaNavego) {
+      this.yaNavego = true;
+      this.router.navigate(['/arena']);
+    }
   }
 }
